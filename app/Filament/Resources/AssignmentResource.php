@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\AssignmentResource\Pages;
 use App\Filament\Resources\AssignmentResource\RelationManagers;
+use App\Jobs\BroadcastAssignmentToWa;
 use App\Models\Assignment;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -13,12 +14,14 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
+use App\Models\WaGroup;
+use Filament\Forms\Components\CheckboxList;
 
 class AssignmentResource extends Resource
 {
     protected static ?string $model = Assignment::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
     protected static ?string $navigationGroup = 'Akademik';
     protected static ?int $navigationSort = 4;
 
@@ -50,10 +53,39 @@ class AssignmentResource extends Resource
             ->actions([
                 Tables\Actions\EditAction::make()
                     ->mutateFormDataUsing(fn(array $data)=> $data + ['created_by' => Auth::id()]),
+
                 Tables\Actions\DeleteAction::make(),
+
                 Tables\Actions\Action::make('broadcast')
                     ->label('Kirim Ke WA')
-                    ->action(fn($record) => \App\Jobs\BroadcastAssignmentToWa::dispatch($record)),
+                    ->action(fn($record) => BroadcastAssignmentToWa::dispatch($record)),
+
+                Tables\Actions\Action::make('broadcast')
+                    ->label('Broadcast WA')
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('success')
+                    ->form([
+                        CheckboxList::make('wa_group_ids')
+                            ->label('Pilih Target Grup')
+                            ->options(WaGroup::where('is_active', true)->pluck('name', 'id'))
+                            ->required()
+                            ->columns(2)
+                            ->default(fn ($record) => WaGroup::where('class_name', $record->course->class_name)->pluck('id')->toArray()),
+                    ])
+                    ->modalHeading('Kirim Tugas ke WhatsApp')
+                    ->modalSubmitActionLabel('Kirim')
+                    ->action(function ($record, array $data) {
+                        BroadcastAssignmentToWa::dispatch(
+                            $record,
+                            $data['wa_group_ids'],
+                            auth()->id()
+                        );
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Tugas sedang dikirim ke WA')
+                            ->success()
+                            ->send();
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

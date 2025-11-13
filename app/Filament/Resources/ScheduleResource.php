@@ -17,7 +17,7 @@ class ScheduleResource extends Resource
 {
     protected static ?string $model = Schedule::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
     Protected static ?string $navigationGroup = 'Akademik';
     Protected static ?int $navigationSort = 3;
 

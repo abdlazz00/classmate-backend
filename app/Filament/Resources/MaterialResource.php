@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\MaterialResource\Pages;
 use App\Filament\Resources\MaterialResource\RelationManagers;
+use App\Jobs\BroadcastMaterialToWa;
 use App\Models\Material;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -13,12 +14,14 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
+use App\Models\WaGroup;
+use Filament\Forms\Components\CheckboxList;
 
 class MaterialResource extends Resource
 {
     protected static ?string $model = Material::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-book-open';
     protected static ?string $navigationGroup = 'Akademik';
     protected static ?int $navigationSort = 5;
 
@@ -114,9 +117,42 @@ class MaterialResource extends Resource
                     ->icon('heroicon-o-arrow-down-tray')
                     ->url(fn (Material $record) => asset('storage/' . $record->file_path))
                     ->openUrlInNewTab(),
+
                 Tables\Actions\EditAction::make()
                     ->mutateFormDataUsing(fn(array $data) => $data + ['uploader_id' => Auth::id()]),
+
                 Tables\Actions\DeleteAction::make(),
+
+                Tables\Actions\Action::make('broadcast')
+                    ->label('Broadcast WA')
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('success')
+                    // MENAMBAHKAN FORM DI DALAM MODAL
+                    ->form([
+                        CheckboxList::make('wa_group_ids')
+                            ->label('Pilih Target Grup WA')
+                            ->options(WaGroup::where('is_active', true)->pluck('name', 'id')) // Ambil list grup aktif
+                            ->required()
+                            ->columns(2) // Agar tampilan rapi 2 kolom
+                            ->helperText('Pilih satu atau lebih grup untuk menerima materi ini.'),
+                    ])
+                    ->modalHeading('Kirim Materi ke WhatsApp')
+                    ->modalSubmitActionLabel('Kirim Sekarang')
+                    ->action(function ($record, array $data) {
+                        // $data['wa_group_ids'] berisi array ID yang dipilih user
+
+                        // Panggil Job dengan parameter tambahan
+                        BroadcastMaterialToWa::dispatch(
+                            $record,
+                            $data['wa_group_ids'],
+                            auth()->id()
+                        );
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Broadcast sedang diproses')
+                            ->success()
+                            ->send();
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

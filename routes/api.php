@@ -15,4 +15,6 @@ Route::middleware('auth:sanctum')->prefix('student')->group(function() {
     Route::get('/assignments', [StudentController::class, 'assignments']);
     Route::get('/materials', [StudentController::class, 'materials']);
     Route::get('/announcements', [StudentController::class, 'announcements']);
+    Route::get('/material/download/{mediaId', [StudentController::class, 'download'])
+    ->name('api.student.material.download');
 });

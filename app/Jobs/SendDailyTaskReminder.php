@@ -6,27 +6,20 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use App\Models\Assignment;
 use App\Models\WaGroup;
+use App\Models\BroadcastLog; // Import Model Log
 use App\Services\FonnteService;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Queue\InteractsWithQueue;
+
 class SendDailyTaskReminder implements ShouldQueue
 {
     use Queueable, InteractsWithQueue, SerializesModels;
 
-    /**
-     * Create a new job instance.
-     */
-    public function __construct()
-    {
-        //
-    }
-
-    /**
-     * Execute the job.
-     */
     public function handle(): void
     {
         $now = now('Asia/Jakarta');
+
+        // Ambil tugas yang deadline >= hari ini
         $assignments = Assignment::with('course')
             ->where('status', 'open')
             ->whereDate('deadline', '>=', $now->toDateString())
@@ -36,19 +29,34 @@ class SendDailyTaskReminder implements ShouldQueue
 
         foreach ($assignments as $class => $list) {
 
-            $group = WaGroup::where('class_name',$class)->where('is_active',true)->first();
-            if (!$group) continue;
+            // Ambil SEMUA grup yang cocok dengan kelas tersebut
+            $groups = WaGroup::where('class_name', $class)
+                ->where('is_active', true)
+                ->get();
 
-            $msg  = "⏰ *Reminder Tugas*\n";
+            if ($groups->isEmpty()) continue;
+
+            $msg  = "⏰ *Reminder Tugas Harian*\n";
             $msg .= "Kelas: *$class*\n\n";
 
             foreach ($list as $a) {
                 $msg .= "• {$a->title} — *{$a->deadline->format('d M H:i')}*\n";
             }
 
-            FonnteService::sendMessage($group->group_code, $msg);
+            foreach ($groups as $group) {
+                FonnteService::sendMessage($group->group_code, $msg);
 
-
+                // --- PENERAPAN LOG AKTUAL ---
+                BroadcastLog::create([
+                    'type' => 'reminder',
+                    'target_group' => $group->name,
+                    'title' => 'Daily Task Reminder',
+                    'message' => $msg,
+                    'status' => 'success',
+                    'triggered_by' => null, // Null = Sistem
+                ]);
+                // ----------------------------
+            }
         }
     }
 }

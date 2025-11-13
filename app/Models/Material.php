@@ -11,7 +11,6 @@ class Material extends Model implements HasMedia
 {
     //
     use InteractsWithMedia;
-    use HasFactory;
 
     protected $fillable=['course_id', 'title', 'description', 'uploader_id', 'type', 'file_path'];
 
