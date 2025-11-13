@@ -28,10 +28,12 @@ class UserResource extends Resource
             Forms\Components\TextInput::make('nim')->label('NIM')->maxLength(30)->unique(User::class, 'nim', ignoreRecord: true),
             Forms\Components\TextInput::make('class_name')->label('Kelas')->maxLength(30),
             Forms\Components\TextInput::make('phone')->label('No. HP')->maxLength(20),
-            Forms\Components\Password::make('password')
+            Forms\Components\TextInput::make('password')
                 ->label('Password (Kosongkan jika tidak ingin mengganti)')
+                ->password()
                 ->dehydrateStateUsing(fn($state) => filled($state) ? \Hash::make($state) : null)
-                ->dehydrated(fn($state) => filled($state)),
+                ->dehydrated(fn($state) => filled($state))
+                ->required(fn(string $context): bool => $context === 'create'),
             Forms\Components\Select::make('roles')
                 ->label('Roles')
                 ->multiple()

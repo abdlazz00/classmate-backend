@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
@@ -10,8 +11,9 @@ class Material extends Model implements HasMedia
 {
     //
     use InteractsWithMedia;
+    use HasFactory;
 
-    protected $fillable=['course_id', 'title', 'description', 'uploader_id'];
+    protected $fillable=['course_id', 'title', 'description', 'uploader_id', 'type', 'file_path'];
 
     public function course()
     {

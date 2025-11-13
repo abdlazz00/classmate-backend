@@ -26,31 +26,41 @@ class MaterialResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Select::make('course_id')->relationship('course','name')->required()->searchable(),
-                Forms\Components\TextInput::make('title')->required()->maxLength(255),
-                Forms\Components\Textarea::make('description')->rows(3),
-                Forms\Components\FileUpload::make('files')
-                    ->label('Upload Files')
-                    ->multiple()
-                    ->maxSize(10240) // 10MB per file
-                    ->directory('materials')
-                    ->disk('public')
-                    ->acceptedFileTypes([
-                        'application/pdf',
-                        'application/msword',
-                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                        'application/vnd.ms-powerpoint',
-                        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                Forms\Components\Select::make('course_id')
+                    ->relationship('course','name')
+                    ->required()
+                    ->searchable()
+                    ->label('Mata Kuliah'),
+
+                Forms\Components\TextInput::make('title')
+                    ->required()
+                    ->maxLength(255)
+                    ->label('Judul Materi'),
+
+                Forms\Components\Textarea::make('description')
+                    ->rows(4)
+                    ->label('Deskripsi Materi'),
+
+                Forms\Components\Select::make('type')
+                    ->options([
+                        'pdf' => 'PDF',
+                        'doc' => 'Word',
+                        'xlx' => 'Excel',
+                        'ppt' => 'PPT',
+                        'link'=> 'Tautan',
                     ])
+                    ->required()
+                    ->default('pdf')
+                    ->label('Tipe File'),
+
+                Forms\Components\FileUpload::make('file_path')
+                    ->directory('materials')
+                    ->required()
                     ->preserveFilenames()
-                    ->saveUploadedFileUsing(function ($file, Material $record) {
-                        // gunakan Spatie Media Library untuk menyimpan file
-                        $record->addMedia($file->getRealPath())
-                            ->usingFileName($file->getClientOriginalName())
-                            ->toMediaCollection('files', 'public');
-                        // return null agar Filament tidak menyimpan path ke DB (Material tidak punya kolom file path)
-                        return null;
-                    }),
+                    ->label('Upload File'),
+
+                Forms\Components\Hidden::make('uploader_id')
+                    ->default(fn () => Auth::id()),
             ]);
     }
 
@@ -58,23 +68,52 @@ class MaterialResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('title')->searchable()->limit(40),
-                Tables\Columns\TextColumn::make('course.name')->label('Mata Kuliah'),
-                Tables\Columns\TextColumn::make('files_count')
-                    ->label('Files')
-                    ->getStateUsing(fn($record) => $record->getMedia('files')->count()),
-                Tables\Columns\TextColumn::make('created_at')->label('Diupload')->dateTime(),
-            ])
+                Tables\Columns\TextColumn::make('title')
+                    ->searchable()
+                    ->limit(40),
+
+                Tables\Columns\TextColumn::make('course.name')
+                    ->label('Mata Kuliah')
+                    ->sortable()
+                    ->searchable(),
+
+                Tables\Columns\TextColumn::make('type')
+                    ->label('Tipe File')
+                    ->badge()
+                    ->colors([
+                        'primary',
+                        'success' => 'pdf',
+                        'warning' => 'doc',
+                        'danger' => 'xlx',
+                        'info' => 'ppt',
+                        'light' => 'link',
+                    ]),
+
+                Tables\Columns\TextColumn::make('uploader.name')
+                    ->label('Uploader')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Diupload')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->dateTime(),
+                ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('type')
+                ->options([
+                    'pdf' => 'PDF',
+                    'doc' => 'Word',
+                    'xlx' => 'Excel',
+                    'ppt' => 'PPT',
+                    'link'=> 'Tautan',
+                ])
             ])
             ->actions([
-                Tables\Actions\Action::make('list_files')
-                    ->label('Files')
-                    ->modalHeading('File Materi')
-                    ->modalContent(fn($record) => view('filament.material-files', [
-                        'files' => $record->getMedia('files')
-                    ])),
+                Tables\Actions\Action::make('download')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->url(fn (Material $record) => asset('storage/' . $record->file_path))
+                    ->openUrlInNewTab(),
                 Tables\Actions\EditAction::make()
                     ->mutateFormDataUsing(fn(array $data) => $data + ['uploader_id' => Auth::id()]),
                 Tables\Actions\DeleteAction::make(),

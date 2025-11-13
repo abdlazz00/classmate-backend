@@ -1,0 +1,81 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Assignment;
+use App\Models\Course;
+use App\Models\Schedule;
+use App\Models\Material;
+use App\Models\Announcement;
+use Illuminate\Http\Request;
+
+class StudentController extends Controller
+{
+    public function dashboard(Request $request)
+    {
+        $kelas = auth()->user()->class_name;
+        return [
+            'nama' =>auth()->user()->name,
+            'nim' =>auth()->user()->nim,
+            'kelas' => $kelas,
+            'jumlah_tugas' => Assignment::whereHas('course', fn($q) =>
+                $q->where('class_name', $kelas)
+            )->where('status', 'open')->count(),
+
+            'materi_terbaru' => Material::with('course')
+                ->whereHas('course', fn($q) => $q->where('class_name', $kelas))
+                ->latest()
+                ->limit(3)
+                ->get(),
+        ];
+    }
+
+    public function schedules()
+    {
+        $kelas = auth()->user()->class_name;
+
+        return Schedule::with('course')
+            ->whereHas('course', fn($q) => $$q ->where('class_name', $kelas))
+            ->orderByRaw("FIELD(day,'senin','selasa','rabu','kamis','jumat','sabtu')")
+            ->orderBy('start_time')
+            ->get();
+    }
+    public function assignments()
+    {
+        $kelas = auth()->user()->class_name;
+
+        return Assignment::with('course')
+            ->whereHas('course', fn($q) => $q->where('class_name', $kelas))
+            ->orderBy('deadline')
+            ->get();
+    }
+
+    public function materials()
+    {
+        return Material::with('course')
+            ->whereHas('course', fn($q) => $q->where('class_name', $kelas))
+            ->get()
+            ->map(function ($m) {
+                return [
+                    'id' => $m->id,
+                    'title' => $m->title,
+                    'description' => $m->description,
+                    'course' => $m->course->name,
+                    'files' => $m->getMedia('files')->map(fn($f) => [
+                        'name' => $f->file_name,
+                        'size' => $f->human_readable_size,
+                        'url' => $f->getUrl(),
+                    ])
+                ];
+            });
+    }
+    public function announcements()
+    {
+        $kelas = auth()->user()->class_name;
+
+        return Announcement::where(function ($q) use ($kelas) {
+            $q->whereNull('class_name')->orWhere('class_name', $kelas);
+        })->latest()->get();
+    }
+}

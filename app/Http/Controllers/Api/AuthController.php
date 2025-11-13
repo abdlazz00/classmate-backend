@@ -17,17 +17,24 @@ class AuthController extends Controller
         ]);
 
         $user = User::where('nim', $request->nim)->first();
+
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
                 'message' => 'NIM atau Password Salah'
             ], 401);
         }
 
-        $token = $user->createToken('mobile')->plainTextToken;
-        return [
-            'token'=>$token,
+        if (!$user->hasRole('mahasiswa')) {
+            return response()->json([
+                'message' => 'Akses hanya untuk mahasiswa'
+            ], 403);
+        }
+
+        $token = $user->createToken('portal')->plainTextToken;
+        return response()->json([
+            'token' => $token,
             'user' => $user,
-        ];
+        ]);
 
     }
 }

@@ -20,10 +20,10 @@ class RoleAndAdminSeeder extends Seeder
         Role::firstOrCreate(['name'=>'mahasiswa']);
 
         $admin = User::firstOrCreate(
-            ['email' => 'admin@botkelas.my.id'],
+            ['email' => 'admin@classmate.id'],
             [
                 'name' => 'Administrator',
-                'password' => Hash::make('Admin!123'),
+                'password' => Hash::make('Admin1!'),
             ]
         );
         if (!$admin->hasRole('admin')) {
