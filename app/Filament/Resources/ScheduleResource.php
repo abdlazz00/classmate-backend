@@ -25,14 +25,23 @@ class ScheduleResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Select::make('course_id')->relationship('course','name')->searchable()->required(),
-                Forms\Components\Select::make('day')->options([
+                Forms\Components\Select::make('course_id')
+                    ->relationship('course','name')
+                    ->label('Mata Kuliah')
+                    ->searchable()
+                    ->required(),
+                Forms\Components\Select::make('day')
+                    ->options([
                     'senin'=>'Senin','selasa'=>'Selasa','rabu'=>'Rabu',
                     'kamis'=>'Kamis','jumat'=>'Jumat','sabtu'=>'Sabtu'
-                ])->required(),
+                    ])
+                    ->label('Hari')
+                    ->required(),
                 Forms\Components\TimePicker::make('start_time')->required(),
                 Forms\Components\TimePicker::make('end_time')->required(),
-                Forms\Components\TextInput::make('room')->maxLength(100),
+                Forms\Components\TextInput::make('room')
+                    ->label('Ruangan')
+                    ->maxLength(100),
             ]);
     }
 

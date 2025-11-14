@@ -29,9 +29,15 @@ class AnnouncementResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('title')->required()->maxLength(255),
-                Forms\Components\Textarea::make('message')->required()->rows(4),
-                Forms\Components\TextInput::make('class_name')->label('Kelas (opsional)')->placeholder('Misal: 2A'),
+                Forms\Components\TextInput::make('title')
+                    ->required()
+                    ->label('Judul Pengumuman')
+                    ->maxLength(255),
+                Forms\Components\Textarea::make('message')
+                    ->required()
+                    ->rows(4),
+                Forms\Components\TextInput::make('class_name')->label('Kelas (opsional)')
+                    ->placeholder('Misal: 3SIKA'),
             ]);
     }
 
@@ -39,9 +45,13 @@ class AnnouncementResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('title')->searchable(),
-                Tables\Columns\TextColumn::make('class_name')->label('Kelas'),
-                Tables\Columns\TextColumn::make('created_at')->dateTime(),
+                Tables\Columns\TextColumn::make('title')
+                    ->label('Judul Pengumuman')
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('class_name')
+                    ->label('Kelas'),
+                Tables\Columns\TextColumn::make('created_at')
+                    ->dateTime(),
             ])
             ->filters([
                 //
