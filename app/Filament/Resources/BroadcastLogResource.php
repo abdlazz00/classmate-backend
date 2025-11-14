@@ -3,94 +3,52 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\BroadcastLogResource\Pages;
-use App\Filament\Resources\BroadcastLogResource\RelationManagers;
 use App\Models\BroadcastLog;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Filament\Tables\Filters\SelectFilter;
+use Filament\Infolists;
+use Filament\Infolists\Infolist;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\Section;
+use Filament\Tables\Filters\SelectFilter;
 
 class BroadcastLogResource extends Resource
 {
     protected static ?string $model = BroadcastLog::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-cog-6-tooth';
-    protected static ?string $navigationGroup = 'System';
+    protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
+    protected static ?string $navigationGroup = 'Logging';
+    protected static ?string $navigationLabel = 'Broadcast Logs';
 
-    public static function form(Form $form): Form
+    // Matikan fitur create manual karena log dibuat oleh sistem
+    public static function canCreate(): bool
     {
-        return $form
-            ->schema([
-                //
-            ]);
+        return false;
     }
 
-    public static function infolist(Infolist $infolist): Infolist
+    // Form tidak digunakan, jadi biarkan kosong
+    public static function form(Form $form): Form
     {
-        return $infolist
-            ->schema([
-                Section::make('Detail Broadcast')
-                ->schema([
-                    TextEntry::make('Title')
-                        ->label('Judul')
-                        ->icon('heroicon-m-document-text'),
-
-                    TextEntry::make('target_group')
-                        ->label('Target Group')
-                        ->icon('heroicon-m-user-group'),
-
-                    TextEntry::make('type')
-                        ->label('Tipe')
-                        ->badge()
-                        ->colors([
-                            'info' => 'announcement',
-                            'success' => 'material',
-                            'warning' => 'assignment',
-                            'primary' => 'reminder',
-                        ]),
-                    TextEntry::make('status')
-                        ->badge()
-                        ->color(fn (string $state): string => match ($state) {
-                            'success' => 'success',
-                            'failed' => 'danger',
-                            default => 'gray',
-                        }),
-
-                    TextEntry::make('user.name')
-                        ->label('Pengirim')
-                        ->placeholder('Sistem (Otomatis)'),
-
-                    TextEntry::make('created_at')
-                        ->label('Waktu Kirim')
-                        ->dateTime('d M Y, H:i'),
-
-                    TextEntry::make('message')
-                        ->label('Isi Pesan WhatsApp')
-                        ->markdown() // Agar format pesan WA terbaca rapi
-                        ->columnSpanFull()
-                        ->extraAttributes(['class' => 'bg-gray-50 p-4 rounded-lg']),
-                ])->columns(2)
-            ]);
+        return $form->schema([]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('create_at')
-                    ->label('Waktu Kirim')
+                Tables\Columns\TextColumn::make('created_at')
                     ->dateTime('d M Y, H:i')
-                    ->sortable(),
+                    ->sortable()
+                    ->label('Waktu'),
+
+                Tables\Columns\TextColumn::make('target_group')
+                    ->searchable()
+                    ->label('Target'),
 
                 Tables\Columns\TextColumn::make('type')
-                    ->label('Tipe Broadcast')
                     ->badge()
                     ->colors([
                         'info' => 'announcement',
@@ -99,33 +57,112 @@ class BroadcastLogResource extends Resource
                         'primary' => 'reminder',
                     ]),
 
-                Tables\Columns\TextColumn::make('target_group')
-                    ->label('Group WA')
-                    ->searchable(),
+                // Status dengan warna Merah/Hijau
+                Tables\Columns\TextColumn::make('status')
+                    ->badge()
+                    ->colors([
+                        'success' => 'success',
+                        'danger' => 'failed',
+                    ]),
 
-                Tables\Columns\TextColumn::make('user.name')
-                    ->label('Pengirim')
-                    ->placeholder('Sistem'),
+                // Intip error log di tabel (dipotong biar ga panjang)
+                Tables\Columns\TextColumn::make('note')
+                    ->limit(30)
+                    ->tooltip(fn ($state) => $state) // Hover untuk lihat full
+                    ->label('Log Note')
+                    ->color('gray')
+                    ->icon(fn ($state) => $state ? 'heroicon-o-exclamation-circle' : null),
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
-                //
+                SelectFilter::make('status')
+                    ->options([
+                        'success' => 'Success',
+                        'failed' => 'Failed',
+                    ]),
                 SelectFilter::make('type')
                     ->options([
                         'assignment' => 'Tugas',
                         'material' => 'Materi',
                         'announcement' => 'Pengumuman',
-                        'reminder' => 'Reminder Harian',
-                    ])
+                        'reminder' => 'Reminder',
+                    ]),
             ])
             ->actions([
+                // ViewAction ini yang akan memanggil Infolist
                 Tables\Actions\ViewAction::make()
-                    ->label('Lihat Pesan'),
+                    ->label('Lihat Detail'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
+            ]);
+    }
+
+    // Ini pengganti tampilan Form untuk melihat detail
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                // BAGIAN 1: Informasi Status
+                Section::make('Status Pengiriman')
+                    ->columns(3)
+                    ->schema([
+                        TextEntry::make('created_at')
+                            ->dateTime('d F Y, H:i:s')
+                            ->label('Waktu Eksekusi'),
+
+                        TextEntry::make('status')
+                            ->badge()
+                            ->colors([
+                                'success' => 'success',
+                                'danger' => 'failed',
+                            ]),
+
+                        TextEntry::make('user.name')
+                            ->label('Dipicu Oleh')
+                            ->placeholder('Sistem Otomatis'),
+                    ]),
+
+                // BAGIAN 2: Detail Konten
+                Section::make('Detail Pesan')
+                    ->schema([
+                        TextEntry::make('type')
+                            ->label('Tipe Broadcast')
+                            ->badge(),
+
+                        TextEntry::make('target_group')
+                            ->label('Grup Tujuan')
+                            ->icon('heroicon-o-user-group'),
+
+                        TextEntry::make('title')
+                            ->label('Judul')
+                            ->weight('bold'),
+
+                        TextEntry::make('message')
+                            ->label('Isi Pesan')
+                            ->columnSpanFull()
+                            ->markdown() // Agar enter/bold di pesan WA terlihat rapi
+                            ->prose(),
+                    ]),
+
+                // BAGIAN 3: Log Error (Penting untuk Debugging)
+                Section::make('Technical Log & Error')
+                    ->schema([
+                        TextEntry::make('note')
+                            ->label('Server Response / Error Message')
+                            ->fontFamily('mono') // Font coding
+                            ->state(function ($record) {
+                                // Coba format JSON biar rapi kalau isinya JSON
+                                $json = json_decode($record->note);
+                                return $json ? json_encode($json, JSON_PRETTY_PRINT) : $record->note;
+                            })
+                            ->columnSpanFull()
+                            ->default('Tidak ada catatan error.'),
+                    ])
+                    ->collapsible() // Bisa ditutup/buka
+                    ->collapsed(fn ($record) => $record->status === 'success'), // Auto tutup kalau sukses
             ]);
     }
 

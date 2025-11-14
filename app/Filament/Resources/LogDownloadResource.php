@@ -18,7 +18,8 @@ class LogDownloadResource extends Resource
     protected static ?string $model = LogDownload::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-arrow-down-tray';
-    protected static ?string $navigationGroup = 'System';
+    protected static ?string $navigationGroup = 'Logging';
+    protected static ?string $navigationLabel = 'Download Logs';
 
 
     public static function form(Form $form): Form

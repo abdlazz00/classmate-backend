@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('title')->nullable();
             $table->text('message');
             $table->string('status')->default('success');
+            $table->string('note')->nullable();
             $table->foreignId('triggered_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
         });

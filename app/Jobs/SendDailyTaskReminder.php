@@ -6,10 +6,11 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use App\Models\Assignment;
 use App\Models\WaGroup;
-use App\Models\BroadcastLog; // Import Model Log
+use App\Models\LogReminder; // Pastikan pakai LogReminder
 use App\Services\FonnteService;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Support\Facades\Log;
 
 class SendDailyTaskReminder implements ShouldQueue
 {
@@ -36,26 +37,44 @@ class SendDailyTaskReminder implements ShouldQueue
 
             if ($groups->isEmpty()) continue;
 
+            // Susun Pesan Digest (Satu pesan berisi banyak tugas)
             $msg  = "⏰ *Reminder Tugas Harian*\n";
             $msg .= "Kelas: *$class*\n\n";
-
             foreach ($list as $a) {
                 $msg .= "• {$a->title} — *{$a->deadline->format('d M H:i')}*\n";
             }
 
+            // Kirim ke setiap grup yang relevan
             foreach ($groups as $group) {
-                FonnteService::sendMessage($group->group_code, $msg);
+                $status = 'success';
+                $note = null;
 
-                // --- PENERAPAN LOG AKTUAL ---
-                BroadcastLog::create([
-                    'type' => 'reminder',
-                    'target_group' => $group->name,
-                    'title' => 'Daily Task Reminder',
-                    'message' => $msg,
-                    'status' => 'success',
-                    'triggered_by' => null, // Null = Sistem
-                ]);
-                // ----------------------------
+                try {
+                    $response = FonnteService::sendMessage($group->group_code, $msg);
+                    $responseBody = $response->json();
+                    $isSuccess = $response->successful() && ($responseBody['status'] ?? false) == true;
+
+                    $status = $isSuccess ? 'success' : 'failed';
+                    $note = $isSuccess ? null : json_encode($responseBody);
+
+                } catch (\Exception $e) {
+                    $status = 'failed';
+                    $note = 'System Error: ' . $e->getMessage();
+                    Log::error("Gagal kirim reminder harian ke {$group->name}: " . $e->getMessage());
+                }
+
+                // REKAM LOG KE LogReminder (Satu entri per tugas yang di-reminder)
+                // Karena tabel LogReminder butuh 'assignment_id', kita loop list tugasnya
+                foreach ($list as $assignmentItem) {
+                    LogReminder::create([
+                        'assignment_id' => $assignmentItem->id,
+                        'group_name' => $group->name,
+                        'message' => $msg, // Pesan yang sama untuk semua item
+                        'sent_at' => now(),
+                        'status' => $status,
+                        'note' => $note, // Simpan detail error jika ada
+                    ]);
+                }
             }
         }
     }

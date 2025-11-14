@@ -23,6 +23,7 @@ class AssignmentResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
     protected static ?string $navigationGroup = 'Akademik';
+    protected static ?string $navigationLabel = 'Tugas';
     protected static ?int $navigationSort = 4;
 
     public static function form(Form $form): Form

@@ -13,6 +13,7 @@ class LogReminder extends Model
         'message',
         'sent_at',
         'status',
+        'note',
     ];
     protected $casts=[
       'sent_at'=>'datetime',

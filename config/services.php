@@ -35,8 +35,8 @@ return [
         ],
     ],
     'fonnte' => [
-      'token' => env('FONNTE_API_TOKEN'),
-      'sender' => env('FONNET_API_SENDER'),
+      'token' => env('FONNTE_TOKEN'),
+      'sender' => env('FONNTE_SENDER'),
     ],
 
 ];

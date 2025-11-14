@@ -4,23 +4,19 @@ namespace App\Jobs;
 
 use App\Models\Assignment;
 use App\Models\WaGroup;
-use App\Models\BroadcastLog; // Import Model Log
+use App\Models\BroadcastLog;
 use App\Services\FonnteService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 class BroadcastAssignmentToWa implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    /**
-     * @param Assignment $assignment
-     * @param array $targetGroupIds (Opsional) ID grup target
-     * @param int|null $userId (Opsional) ID Admin yang mengirim
-     */
     public function __construct(
         public Assignment $assignment,
         public array $targetGroupIds = [],
@@ -29,14 +25,11 @@ class BroadcastAssignmentToWa implements ShouldQueue
 
     public function handle(): void
     {
-        // 1. Tentukan Grup Tujuan
+        // 1. Tentukan Grup
         if (!empty($this->targetGroupIds)) {
-            // Jika Admin memilih manual
-            $groups = WaGroup::whereIn('id', $this->targetGroupIds)
-                ->where('is_active', true)
-                ->get();
+            $groups = WaGroup::whereIn('id', $this->targetGroupIds)->where('is_active', true)->get();
         } else {
-            // Fallback otomatis berdasarkan nama kelas
+            // Reload relation course untuk akses class_name
             $assignment = Assignment::with('course')->find($this->assignment->id);
             if (!$assignment) return;
 
@@ -54,21 +47,36 @@ class BroadcastAssignmentToWa implements ShouldQueue
         $msg .= "Deadline: *" . $this->assignment->deadline->format('d M Y H:i') . "*\n";
         $msg .= "\n{$this->assignment->description}";
 
-        // 3. Loop Kirim & Log
+        // 3. Loop Kirim & Log dengan Error Handling
         foreach ($groups as $group) {
-            // Kirim WA
-            $response = FonnteService::sendMessage($group->group_code, $msg);
+            try {
+                $response = FonnteService::sendMessage($group->group_code, $msg);
+                $responseBody = $response->json();
+                $isSuccess = $response->successful() && ($responseBody['status'] ?? false) == true;
 
-            // --- PENERAPAN LOG AKTUAL ---
-            BroadcastLog::create([
-                'type' => 'assignment',
-                'target_group' => $group->name,
-                'title' => $this->assignment->title,
-                'message' => $msg,
-                'status' => 'success', // Asumsi sukses masuk antrian Fonnte
-                'triggered_by' => $this->userId, // ID Admin
-            ]);
-            // ----------------------------
+                BroadcastLog::create([
+                    'type' => 'assignment',
+                    'target_group' => $group->name,
+                    'title' => $this->assignment->title,
+                    'message' => $msg,
+                    'status' => $isSuccess ? 'success' : 'failed',
+                    'note' => $isSuccess ? null : json_encode($responseBody),
+                    'triggered_by' => $this->userId,
+                ]);
+
+            } catch (\Exception $e) {
+                Log::error("Broadcast Tugas Gagal ke {$group->name}: " . $e->getMessage());
+
+                BroadcastLog::create([
+                    'type' => 'assignment',
+                    'target_group' => $group->name,
+                    'title' => $this->assignment->title,
+                    'message' => $msg,
+                    'status' => 'failed',
+                    'note' => 'System Error: ' . $e->getMessage(),
+                    'triggered_by' => $this->userId,
+                ]);
+            }
         }
     }
 }

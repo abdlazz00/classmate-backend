@@ -12,6 +12,7 @@ class BroadcastLog extends Model
         'title',
         'message',
         'status',
+        'note',
         'triggered_by',
 
     ];

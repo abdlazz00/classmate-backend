@@ -4,13 +4,14 @@ namespace App\Jobs;
 
 use App\Models\Announcement;
 use App\Models\WaGroup;
-use App\Models\BroadcastLog; // Import Model Log
+use App\Models\BroadcastLog;
 use App\Services\FonnteService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 class BroadcastAnnouncementToWa implements ShouldQueue
 {
@@ -45,18 +46,34 @@ class BroadcastAnnouncementToWa implements ShouldQueue
 
         // 3. Loop Kirim & Log
         foreach ($groups as $group) {
-            FonnteService::sendMessage($group->group_code, $msg);
+            try {
+                $response = FonnteService::sendMessage($group->group_code, $msg);
+                $responseBody = $response->json();
+                $isSuccess = $response->successful() && ($responseBody['status'] ?? false) == true;
 
-            // --- PENERAPAN LOG AKTUAL ---
-            BroadcastLog::create([
-                'type' => 'announcement',
-                'target_group' => $group->name,
-                'title' => $data->title,
-                'message' => $msg,
-                'status' => 'success',
-                'triggered_by' => $this->userId,
-            ]);
-            // ----------------------------
+                BroadcastLog::create([
+                    'type' => 'announcement',
+                    'target_group' => $group->name,
+                    'title' => $data->title,
+                    'message' => $msg,
+                    'status' => $isSuccess ? 'success' : 'failed',
+                    'note' => $isSuccess ? null : json_encode($responseBody),
+                    'triggered_by' => $this->userId,
+                ]);
+
+            } catch (\Exception $e) {
+                Log::error("Broadcast Pengumuman Gagal ke {$group->name}: " . $e->getMessage());
+
+                BroadcastLog::create([
+                    'type' => 'announcement',
+                    'target_group' => $group->name,
+                    'title' => $data->title,
+                    'message' => $msg,
+                    'status' => 'failed',
+                    'note' => 'System Error: ' . $e->getMessage(),
+                    'triggered_by' => $this->userId,
+                ]);
+            }
         }
     }
 }
