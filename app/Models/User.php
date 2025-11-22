@@ -36,6 +36,8 @@ class User extends Authenticatable implements FilamentUser
         'nim',
         'class_name',
         'phone',
+        'otp_code',
+        'otp_expires_at',
     ];
 
     /**
@@ -72,6 +74,7 @@ class User extends Authenticatable implements FilamentUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'otp_expires_at' => 'datetime',
         ];
     }
     public function canAccessPanel(Panel $panel): bool

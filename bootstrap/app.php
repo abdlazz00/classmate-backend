@@ -12,7 +12,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // KITA HAPUS BAGIAN $middleware->api(...) YANG TADI
+
+        // Konfigurasi pengecualian CSRF (Hanya untuk webhook Fonnte)
         $middleware->validateCsrfTokens(except: [
             'fonnte/webhook',
         ]);

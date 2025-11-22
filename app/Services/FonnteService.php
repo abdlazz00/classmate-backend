@@ -3,24 +3,22 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log; // Tambahkan ini
+use Illuminate\Support\Facades\Log;
 
 class FonnteService
 {
     private static function sendRequest(array $data)
     {
-        // Perhatikan ejaannya: 'fonnte' (double n) sesuai config/services.php Anda
-        $token = config('services.fonnte.token');
+        // PERBAIKAN: Ambil langsung dari .env agar lebih aman dan pasti ada
+        $token = env('FONNTE_TOKEN');
 
-        // --- DEBUGGING: Cek token apa yang terbaca sistem ---
+        // Debugging: Cek di Laravel.log apakah token terbaca
         Log::info('🔍 DEBUG FONNTE TOKEN:', [
-            'token_yang_dibaca' => $token ? substr($token, 0, 5) . '...' : 'KOSONG/NULL',
-            'panjang_token' => strlen($token ?? ''),
+            'token_preview' => $token ? substr($token, 0, 5) . '...' : 'KOSONG/NULL',
         ]);
-        // ----------------------------------------------------
 
         return Http::withHeaders([
-            'Authorization' => $token, // Langsung gunakan variabel $token
+            'Authorization' => $token,
         ])->asForm()->post('https://api.fonnte.com/send', $data);
     }
 
@@ -29,6 +27,7 @@ class FonnteService
         return self::sendRequest([
             'target' => $target,
             'message' => $message,
+            'countryCode' => '62', // Tambahan: Otomatis ubah 08xx jadi 62xx
         ]);
     }
 
@@ -36,8 +35,8 @@ class FonnteService
     {
         return self::sendRequest([
             'target' => $target,
-            'url' => $fileUrl, // Fonnte update: gunakan 'url' bukan 'fileUrl' untuk send file
-            'message' => $caption, // Fonnte update: caption masuk ke 'message' jika ada file
+            'url' => $fileUrl,
+            'message' => $caption,
         ]);
     }
 }

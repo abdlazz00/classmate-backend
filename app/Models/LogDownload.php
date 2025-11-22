@@ -10,7 +10,8 @@ class LogDownload extends Model
     protected $fillable=[
         'user_id',
         'material_id',
-        'download_at',
+        'downloaded_at',
+        'note'
     ];
     protected $casts=[
         'download_at'=>'datetime',

@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Auth;
 use App\Models\WaGroup;
 use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload; // Tambahkan ini // Tambahkan ini
 
 class MaterialResource extends Resource
 {
@@ -57,11 +58,12 @@ class MaterialResource extends Resource
                     ->default('pdf')
                     ->label('Tipe File'),
 
-                Forms\Components\FileUpload::make('file_path')
-                    ->directory('materials')
-                    ->required()
-                    ->preserveFilenames()
-                    ->label('Upload File'),
+                SpatieMediaLibraryFileUpload::make('files') // Nama harus 'files' sesuai StudentController
+                ->collection('files') // Sesuai nama collection di Model Material
+                ->required()
+                    ->label('Upload File (Spatie)')
+                    ->maxSize(10240) // Opsional: max 10MB
+                    ->downloadable(),
 
                 Forms\Components\Hidden::make('uploader_id')
                     ->default(fn () => Auth::id()),

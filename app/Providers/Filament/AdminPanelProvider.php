@@ -2,9 +2,7 @@
 
 namespace App\Providers\Filament;
 
-use App\Http\Middleware\CheckFilamentRole;
 use Filament\Http\Middleware\Authenticate;
-use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Pages;
@@ -16,12 +14,10 @@ use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
+use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-use Spatie\Permission\Traits\HasRoles;
-use Filament\Navigation\MenuItem;
-use Filament\Navigation\UserMenuItem;
-use Illuminate\Support\Facades\Auth;
+use App\Filament\Pages\Login as CustomLogin;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -31,14 +27,9 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login()
-            ->brandName('Classmate')
+            ->login(CustomLogin::class)
             ->colors([
                 'primary' => Color::Blue,
-            ])
-            ->navigationGroups([
-                'Akademik',
-                'System',
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
@@ -63,7 +54,6 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-                CheckFilamentRole::class,
             ]);
     }
 }

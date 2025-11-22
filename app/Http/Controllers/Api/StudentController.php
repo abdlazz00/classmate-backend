@@ -16,19 +16,42 @@ class StudentController extends Controller
 {
     public function dashboard(Request $request)
     {
-        $kelas = auth()->user()->class_name;
+        $user = auth()->user();
+        $kelas = $user->class_name;
+
+        // 1. Cek Hari ini (Senin, Selasa, dst) untuk filter jadwal
+        // Kita pakai array mapping manual agar aman dari settingan bahasa server
+        $days = [
+            1 => 'senin', 2 => 'selasa', 3 => 'rabu', 4 => 'kamis',
+            5 => 'jumat', 6 => 'sabtu', 7 => 'minggu'
+        ];
+        $hari_ini = $days[date('N')]; // date('N') return 1 (Senin) s.d 7 (Minggu)
+
         return [
-            'nama' => auth()->user()->name,
-            'nim' => auth()->user()->nim,
+            'nama' => $user->name,
+            'nim' => $user->nim,
             'kelas' => $kelas,
+
+            // Hitung tugas yang statusnya 'open'
             'jumlah_tugas' => Assignment::whereHas('course', fn($q) =>
             $q->where('class_name', $kelas)
             )->where('status', 'open')->count(),
 
+            // Ambil 3 Materi Terbaru
             'materi_terbaru' => Material::with('course')
                 ->whereHas('course', fn($q) => $q->where('class_name', $kelas))
                 ->latest()
                 ->limit(3)
+                ->get(),
+
+            'pengumuman_terbaru' => Announcement::where(function ($q) use ($kelas) {
+                $q->whereNull('class_name')->orWhere('class_name', $kelas);
+            })->latest()->limit(3)->get(),
+
+            'jadwal_hari_ini' => Schedule::with('course')
+                ->whereHas('course', fn($q) => $q->where('class_name', $kelas))
+                ->where('day', $hari_ini)
+                ->orderBy('start_time')
                 ->get(),
         ];
     }
@@ -57,10 +80,12 @@ class StudentController extends Controller
 
     public function materials()
     {
-        $kelas = auth()->user()->class_name; // Tambahkan definisi variabel $kelas
+        $kelas = auth()->user()->class_name;
 
-        return Material::with('course')
+        // Tambahkan 'uploader' di with() untuk mengambil nama dosen/admin
+        return Material::with(['course', 'uploader'])
             ->whereHas('course', fn($q) => $q->where('class_name', $kelas))
+            ->latest() // Urutkan dari yang terbaru
             ->get()
             ->map(function ($m) {
                 return [
@@ -68,12 +93,16 @@ class StudentController extends Controller
                     'title' => $m->title,
                     'description' => $m->description,
                     'course' => $m->course->name,
+
+                    // === DATA BARU ===
+                    'created_at' => $m->created_at,
+                    'uploader' => $m->uploader ? $m->uploader->name : 'Admin',
+                    // =================
+
                     'files' => $m->getMedia('files')->map(fn($f) => [
                         'name' => $f->file_name,
                         'size' => $f->human_readable_size,
-                        // UPDATE URL: Arahkan ke endpoint download khusus agar tercatat log-nya
                         'url' => route('api.student.material.download', $f->id),
-                        // 'original_url' => $f->getUrl() // Opsional jika butuh link asli
                     ])
                 ];
             });
@@ -83,9 +112,11 @@ class StudentController extends Controller
     {
         $kelas = auth()->user()->class_name;
 
-        return Announcement::where(function ($q) use ($kelas) {
+        return Announcement::with('creator')
+        ->where(function ($q) use ($kelas) {
             $q->whereNull('class_name')->orWhere('class_name', $kelas);
         })->latest()->get();
+
     }
 
     // --- FITUR BARU: DOWNLOAD LOGGING ---
@@ -102,7 +133,7 @@ class StudentController extends Controller
         LogDownload::create([
             'user_id' => auth()->id(),
             'material_id' => $media->model_id,
-            'download_at' => now(),
+            'downloaded_at' => now(),
         ]);
 
         return response()->download($media->getPath(), $media->file_name);

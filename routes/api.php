@@ -9,6 +9,8 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 Route::post('/login',[\App\Http\Controllers\Api\AuthController::class,'login']);
+Route::post('/forgot-password/send-otp', [\App\Http\Controllers\Api\AuthController::class, 'sendOtp']);
+Route::post('/forgot-password/reset', [\App\Http\Controllers\Api\AuthController::class, 'resetPasswordWithOtp']);
 Route::middleware('auth:sanctum')->prefix('student')->group(function() {
     Route::get('/dashboard', [StudentController::class, 'dashboard']);
     Route::get('/schedules', [StudentController::class, 'schedules']);
@@ -17,4 +19,6 @@ Route::middleware('auth:sanctum')->prefix('student')->group(function() {
     Route::get('/announcements', [StudentController::class, 'announcements']);
     Route::get('/material/download/{mediaId}', [StudentController::class, 'download'])
     ->name('api.student.material.download');
+    Route::post('/profile/update', [\App\Http\Controllers\Api\AuthController::class, 'updateProfile']);
+    Route::post('/profile/password', [\App\Http\Controllers\Api\AuthController::class, 'changePassword']);
 });
